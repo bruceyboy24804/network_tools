@@ -1,0 +1,19 @@
+{
+    "modId": "network_tools_1",
+    "revision": 3,
+    "dependencies": null,
+    "incompatibilities": null,
+    "options": null,
+    "params": null,
+    "postRunScript": {
+        "fileName": ""
+    },
+    "preRunScript": {
+        "fileName": ""
+    },
+    "runScript": {
+        "fileName": ""
+    },
+    "severityAdd": "None",
+    "severityRemove": "None"
+}
