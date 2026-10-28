@@ -19,7 +19,8 @@ local record NetUtil
 	isPlainCrossing : function(node : Engine.Entity) : boolean
 	crossingTypeAt : function(node : Engine.Entity) : integer
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
-	carryConfigs : function(proposal : SimpleProposal, nodes : {Engine.Entity}, remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}) : integer
+	carryConfigs : function(proposal : SimpleProposal, nodes : {Engine.Entity}, remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}, onto? : {Engine.Entity : Engine.Entity}) : integer
+	carryReplaced : function(proposal : SimpleProposal) : integer
 end
 
 local function getEdge(entity : Engine.Entity) : Engine.Component.BaseEdge
@@ -228,8 +229,11 @@ end
 -- (mod.io report 2026-10-19, "Assertion it != components.end()", BaseNodeConfig / BaseEdge).
 -- `remap`: node -> { old segment -> new segment, or false where the node loses it }. Only nodes in
 -- `remap` are carried; a connection / crosswalk naming any other removed segment is dropped.
+-- `onto`: node -> the node entity to give the config to instead (a node the proposal replaces by a
+-- new one, nodesToAdd id < 0). A new node left without a config crashes the game the same way
+-- (the simulation reads its BaseNodeConfig before the engine has made one).
 local function carryConfigs(proposal : SimpleProposal, nodes : {Engine.Entity},
-		remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}) : integer
+		remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}, onto? : {Engine.Entity : Engine.Entity}) : integer
 	local removed : {Engine.Entity : boolean} = {}
 	pcall(function()
 		for __, s in ipairs(proposal.streetProposal.edgesToRemove or {}) do removed[s as Engine.Entity] = true end
@@ -263,7 +267,7 @@ local function carryConfigs(proposal : SimpleProposal, nodes : {Engine.Entity},
 					if cw then walks[#walks + 1] = cw end
 				end
 				local ae = api.type.BaseNodeLaneConnectionAndEntity.new()
-				ae.entity = node
+				ae.entity = onto and onto[node] or node
 				ae.comp = cfg
 				ae.comp.laneConnections = conns
 				ae.comp.crosswalks = walks
@@ -287,6 +291,30 @@ local function carryConfigs(proposal : SimpleProposal, nodes : {Engine.Entity},
 	return #adds
 end
 
+-- For a proposal that re-adds segments one for one (edgesToAdd[i] replaces edgesToRemove[i]) and
+-- has set nodeConfigsToRemove: give those nodes' configs back, renamed onto the replacements.
+local function carryReplaced(proposal : SimpleProposal) : integer
+	local sp = proposal.streetProposal
+	local nodes : {Engine.Entity} = {}
+	local remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}} = {}
+	local ok = pcall(function()
+		local old, new = sp.edgesToRemove, sp.edgesToAdd
+		if #old ~= #new then error("segments are not replaced one for one") end
+		for i = 1, #old do
+			local e = getEdge(old[i] as Engine.Entity)
+			if e then
+				for __, n in ipairs({ e.node0, e.node1 }) do
+					remap[n] = remap[n] or {}
+					remap[n][old[i] as Engine.Entity] = new[i].entity
+				end
+			end
+		end
+		for __, n in ipairs(sp.nodeConfigsToRemove or {}) do nodes[#nodes + 1] = n as Engine.Entity end
+	end)
+	if not ok or #nodes == 0 then return 0 end
+	return carryConfigs(proposal, nodes, remap)
+end
+
 local M : NetUtil = {
 	isProtectedNode = isProtectedNode,
 	whyNotReplaceable = whyNotReplaceable,
@@ -296,5 +324,6 @@ local M : NetUtil = {
 	crossingTypeAt = crossingTypeAt,
 	rebuildCrossings = rebuildCrossings,
 	carryConfigs = carryConfigs,
+	carryReplaced = carryReplaced,
 }
 return M

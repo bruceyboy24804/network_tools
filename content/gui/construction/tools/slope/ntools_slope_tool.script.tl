@@ -53,6 +53,7 @@ local record NetUtil
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}, skipNodes? : {Engine.Entity}) : {Engine.Entity}
 	isCrossingNode : function(node : Engine.Entity) : boolean
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
+	carryConfigs : function(proposal : SimpleProposal, nodes : {Engine.Entity}, remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}, onto? : {Engine.Entity : Engine.Entity}) : integer
 end
 local net_util = require "network_tools_1::/gui/construction/tools/shared/ntools_net_util.script.tl" as NetUtil
 
@@ -392,6 +393,22 @@ local function makeSlopeProposal(chain : {ChainLink}, mode : integer, arch : num
 	-- (the moved nodes are removed, and a removed node's config can't be removed separately)
 	local cfgNodes = net_util.configNodesFor(toReAdd, nil, moved)
 	if #cfgNodes > 0 then proposal.streetProposal.nodeConfigsToRemove = cfgNodes end
+	-- and give the configs back, renamed onto the re-added segments (the segment replacing toReAdd[i]
+	-- is -i): the untouched ends get their own back, each moved node's goes to its replacement. Left
+	-- bare, a node has no config for a while and the simulation asserts on BaseNodeConfig after
+	-- Build
+	local cfgRemap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}} = {}
+	for i, edge in ipairs(toReAdd) do
+		local e = getEdge(edge)
+		for _, n in ipairs({ e.node0, e.node1 }) do
+			cfgRemap[n] = cfgRemap[n] or {}
+			cfgRemap[n][edge] = -i
+		end
+	end
+	local carry : {Engine.Entity} = {}
+	for _, n in ipairs(cfgNodes) do carry[#carry + 1] = n end
+	for _, n in ipairs(moved) do carry[#carry + 1] = n end
+	net_util.carryConfigs(proposal, carry, cfgRemap, newId)
 	-- an untouched end at a level crossing: the engine re-creates the crossing
 	net_util.rebuildCrossings(proposal, toReAdd, moved)
 	res.proposal = proposal

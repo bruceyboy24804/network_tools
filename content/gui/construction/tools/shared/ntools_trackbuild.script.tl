@@ -39,6 +39,7 @@ local record NetUtil
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
 	whyNotReplaceable : function(edge : Engine.Entity) : string
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}, skipNodes? : {Engine.Entity}) : {Engine.Entity}
+	carryReplaced : function(proposal : SimpleProposal) : integer
 end
 local net_util = require "network_tools_1::/gui/construction/tools/shared/ntools_net_util.script.tl" as NetUtil
 
@@ -593,7 +594,11 @@ local function placeSignals(list : {DeferredSignal})
 		p.streetProposal.edgesToRemove = edgesToRemove
 		p.streetProposal.edgeObjectsToAdd = objects
 		local cfg = net_util.configNodesFor(edgesToRemove)
-		if #cfg > 0 then p.streetProposal.nodeConfigsToRemove = cfg end
+		if #cfg > 0 then
+			p.streetProposal.nodeConfigsToRemove = cfg
+			-- and give them back on the re-added segments (a node left without a config crashes the game)
+			net_util.carryReplaced(p)
+		end
 		net_util.rebuildCrossings(p, edgesToRemove)
 		api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(p, nil, false, true), function(__ : WorldBuildProposalCommandData, success : boolean)
 			if not success then print("[network_tools] signals after the build: refused") end

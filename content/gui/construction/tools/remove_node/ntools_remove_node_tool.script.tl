@@ -46,6 +46,7 @@ local record NetUtil
 	whyNotReplaceable : function(edge : Engine.Entity) : string
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}, skipNodes? : {Engine.Entity}) : {Engine.Entity}
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
+	carryConfigs : function(proposal : SimpleProposal, nodes : {Engine.Entity}, remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}, onto? : {Engine.Entity : Engine.Entity}) : integer
 end
 local net_util = require "network_tools_1::/gui/construction/tools/shared/ntools_net_util.script.tl" as NetUtil
 
@@ -156,6 +157,12 @@ local function makeRemoveNodeProposal(node : Engine.Entity) : SimpleProposal, st
 	local cfgNodes = net_util.configNodesFor({ first, second }, nil, { node })
 	if #cfgNodes > 0 then
 		proposal.streetProposal.nodeConfigsToRemove = cfgNodes
+		-- and give them back on the joined segment: a node left without a config crashes the game
+		-- after Build
+		local remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}} = {}
+		remap[f.node0] = { [first] = -1 }
+		remap[s.node1] = { [second] = -1 }
+		net_util.carryConfigs(proposal, cfgNodes, remap)
 	end
 	-- a far end at a level crossing: the engine re-creates the crossing
 	net_util.rebuildCrossings(proposal, { first, second }, { node })

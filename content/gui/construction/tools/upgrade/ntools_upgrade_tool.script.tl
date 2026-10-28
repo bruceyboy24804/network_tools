@@ -26,6 +26,7 @@ local react = ug_require "::/gui/main/react.lua" as React
 local record NetUtil
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}) : {Engine.Entity}
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
+	carryReplaced : function(proposal : SimpleProposal) : integer
 end
 local net_util = require "network_tools_1::/gui/construction/tools/shared/ntools_net_util.script.tl" as NetUtil
 
@@ -194,7 +195,11 @@ local function makeUpgradeProposal(chain : {ChainLink}) : SimpleProposal, string
 	if #objectsRemoved > 0 then proposal.streetProposal.edgeObjectsToRemove = objectsRemoved end
 	-- the end nodes' lane connections name the re-added segments: the engine rebuilds them
 	local cfg = net_util.configNodesFor(edgesToRemove)
-	if #cfg > 0 then proposal.streetProposal.nodeConfigsToRemove = cfg end
+	if #cfg > 0 then
+		proposal.streetProposal.nodeConfigsToRemove = cfg
+		-- and give them back on the re-added segments (a node left without a config crashes the game)
+		net_util.carryReplaced(proposal)
+	end
 	-- a re-added segment at a level crossing: the engine re-creates the crossing (same type)
 	net_util.rebuildCrossings(proposal, edgesToRemove)
 	return proposal, nil, #edgesToAdd, skipped

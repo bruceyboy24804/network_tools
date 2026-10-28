@@ -15,6 +15,7 @@ local record NetUtil
 	whyNotReplaceable : function(edge : Engine.Entity) : string
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}) : {Engine.Entity}
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
+	carryReplaced : function(proposal : SimpleProposal) : integer
 end
 local net_util = require "network_tools_1::/gui/construction/tools/shared/ntools_net_util.script.tl" as NetUtil
 
@@ -120,6 +121,8 @@ local function makeReverseProposal(edges : {Engine.Entity}) : SimpleProposal, st
 	local cfgNodes = net_util.configNodesFor(edges)
 	if #cfgNodes > 0 then
 		proposal.streetProposal.nodeConfigsToRemove = cfgNodes
+		-- and give them back on the flipped segments (a node left without a config crashes the game)
+		net_util.carryReplaced(proposal)
 	end
 	-- an end at a level crossing: the engine re-creates the crossing
 	net_util.rebuildCrossings(proposal, edges)

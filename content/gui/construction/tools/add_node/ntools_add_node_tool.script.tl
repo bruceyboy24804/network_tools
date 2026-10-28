@@ -45,6 +45,7 @@ local geom = require "network_tools_1::/gui/construction/tools/shared/ntools_geo
 
 local record NetUtil
 	rebuildCrossings : function(proposal : SimpleProposal, removedEdges : {Engine.Entity}, skipNodes? : {Engine.Entity}) : integer
+	carryConfigs : function(proposal : SimpleProposal, nodes : {Engine.Entity}, remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}}, onto? : {Engine.Entity : Engine.Entity}) : integer
 	whyNotReplaceable : function(edge : Engine.Entity) : string
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}, skipNodes? : {Engine.Entity}) : {Engine.Entity}
 end
@@ -144,6 +145,13 @@ local function makeAddNodeProposal(edge : Engine.Entity, x : number, y : number)
 	local cfgNodes = net_util.configNodesFor({ edge })
 	if #cfgNodes > 0 then
 		proposal.streetProposal.nodeConfigsToRemove = cfgNodes
+		-- and give them back on the two halves (-1 runs from node0, -2 to node1): a node left without
+		-- a config crashes the game after Build
+		local remap : {Engine.Entity : {Engine.Entity : Engine.Entity | boolean}} = {}
+		remap[e.node0] = { [edge] = -1 }
+		remap[e.node1] = remap[e.node1] or {}
+		remap[e.node1][edge] = -2
+		net_util.carryConfigs(proposal, cfgNodes, remap)
 	end
 	-- a segment ending at a level crossing: the engine re-creates the crossing
 	net_util.rebuildCrossings(proposal, { edge })
