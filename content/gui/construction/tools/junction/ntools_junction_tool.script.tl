@@ -28,6 +28,7 @@ end
 local padMod = require "network_tools_1::/gui/construction/tools/shared/ntools_pad.script.tl" as PadModule
 local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as EngineReactUtil
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 local record P3
 	x : number
@@ -1168,7 +1169,7 @@ local JunctionActionRecipe = react.RegisterRecipe("NtoolsJunctionAction", functi
 		end,
 	}
 
-	padMod.actions(pad, _("Pick track / grab handle"), function() params.abort() end, _("Leave the tool"))
+	padMod.actions(pad, _("Pick track / grab handle"), function() leave(params) end, _("Leave the tool"))
 
 	local actionFn = function() : TreeNodeId
 		padMod.trackLayer(pad)
@@ -1178,7 +1179,7 @@ local JunctionActionRecipe = react.RegisterRecipe("NtoolsJunctionAction", functi
 			children[#children + 1] = g_host.tooltip(_("Building..."), true, false)
 			return builtin.ActionDescriptor{
 				tool = "construction-menu-perks",
-				onBack = function() params.abort() end,
+				onBack = function() leave(params) end,
 				crosshair = crosshair,
 				terrainCirclePolicy = circle,
 				children = children,
@@ -1328,7 +1329,7 @@ local JunctionActionRecipe = react.RegisterRecipe("NtoolsJunctionAction", functi
 		if under then children[#children + 1] = under end
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			crosshair = crosshair,
 			terrainCirclePolicy = circle,
 			children = children,

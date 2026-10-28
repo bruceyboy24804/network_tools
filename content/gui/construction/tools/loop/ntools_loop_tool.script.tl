@@ -9,6 +9,7 @@
 local builtin = ug_require "::/gui/main/builtin.lua" as Builtin
 local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as EngineReactUtil
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 local record P3
 	x : number
@@ -489,7 +490,7 @@ local LoopActionRecipe = react.RegisterRecipe("NtoolsLoopAction", function(param
 			children[#children + 1] = g_host.tooltip(_("Building..."), true, false)
 			return builtin.ActionDescriptor{
 				tool = "construction-menu-perks",
-				onBack = function() params.abort() end,
+				onBack = function() leave(params) end,
 				terrainCirclePolicy = "Never",
 				children = children,
 			}
@@ -552,7 +553,7 @@ local LoopActionRecipe = react.RegisterRecipe("NtoolsLoopAction", function(param
 		for __, l in ipairs(chain) do hl[#hl + 1] = l.edge end
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			highlightedEntities = hl,
 			terrainCirclePolicy = "Never",
 			children = children,

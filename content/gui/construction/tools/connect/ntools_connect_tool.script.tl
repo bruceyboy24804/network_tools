@@ -26,6 +26,7 @@ local construction_react_util = ug_require "::/gui/construction/construction_rea
 local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as EngineReactUtil
 local menu_category_util = ug_require "::/gui/main/menu_category_util.tl" as MenuCategoryUtil
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 -- in-world tags on segments and points (shared/ntools_labels)
 local record Tag
@@ -4356,7 +4357,7 @@ local ConnectActionRecipe = react.RegisterRecipe("NtoolsConnectAction", function
 		local holding = draggingRef:get() ~= 0
 		local confirmText = holding and _("Put down") or ((a and b) and _("Grab handle") or _("Place point"))
 		;(padMod.actions as function(any, string, function(), string))(pad, confirmText, function()
-			if draggingRef:get() ~= 0 then setDragging(0) else params.abort() end
+			if draggingRef:get() ~= 0 then setDragging(0) else leave(params) end
 		end, holding and _("Put down") or _("Leave the tool"))
 	end
 
@@ -4375,7 +4376,7 @@ local ConnectActionRecipe = react.RegisterRecipe("NtoolsConnectAction", function
 			return builtin.ActionDescriptor{
 				tool = "construction-menu-perks",
 				parent = selfRef,
-				onBack = function() params.abort() end,
+				onBack = function() leave(params) end,
 				crosshair = gamepad,
 				terrainCirclePolicy = gamepad and "FocusSelection" or "Never",
 				children = { (firstEnd and b == nil)
@@ -4846,7 +4847,7 @@ local ConnectActionRecipe = react.RegisterRecipe("NtoolsConnectAction", function
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
 			parent = selfRef,
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			highlightedEntities = highlighted,
 			-- (controller: the crosshair and the focus circle, as the game's own tools)
 			crosshair = gamepad,

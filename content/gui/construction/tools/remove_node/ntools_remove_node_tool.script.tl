@@ -20,6 +20,7 @@ local record PadModule
 end
 local padMod = require "network_tools_1::/gui/construction/tools/shared/ntools_pad.script.tl" as PadModule
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 local record P3
 	x : number
@@ -206,7 +207,7 @@ local RemoveNodeActionRecipe = react.RegisterRecipe("NtoolsRemoveNodeAction", fu
 		return true
 	end
 
-	padMod.actions(pad, _("Remove node"), function() params.abort() end, _("Leave the tool"))
+	padMod.actions(pad, _("Remove node"), function() leave(params) end, _("Leave the tool"))
 
 	local actionFn = function() : TreeNodeId
 		padMod.trackLayer(pad)
@@ -233,7 +234,7 @@ local RemoveNodeActionRecipe = react.RegisterRecipe("NtoolsRemoveNodeAction", fu
 		if under then children[#children + 1] = under end
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			crosshair = crosshair,
 			terrainCirclePolicy = circle,
 			children = children,

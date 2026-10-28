@@ -22,6 +22,7 @@ end
 local padMod = require "network_tools_1::/gui/construction/tools/shared/ntools_pad.script.tl" as PadModule
 local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as EngineReactUtil
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 local record NetUtil
 	configNodesFor : function(removedEdges : {Engine.Entity}, extraNodes? : {Engine.Entity}) : {Engine.Entity}
@@ -280,7 +281,7 @@ local UpgradeActionRecipe = react.RegisterRecipe("NtoolsUpgradeAction", function
 		ntoolsBuild = build,
 	})
 
-	padMod.actions(pad, _("Pick segment"), function() params.abort() end, _("Leave the tool"))
+	padMod.actions(pad, _("Pick segment"), function() leave(params) end, _("Leave the tool"))
 
 	local actionFn = function() : TreeNodeId
 		padMod.trackLayer(pad)
@@ -290,7 +291,7 @@ local UpgradeActionRecipe = react.RegisterRecipe("NtoolsUpgradeAction", function
 			children[#children + 1] = g_host.tooltip(_("Upgrading..."), true, false)
 			return builtin.ActionDescriptor{
 				tool = "construction-menu-perks",
-				onBack = function() params.abort() end,
+				onBack = function() leave(params) end,
 				crosshair = crosshair,
 				terrainCirclePolicy = circle,
 				children = children,
@@ -351,7 +352,7 @@ local UpgradeActionRecipe = react.RegisterRecipe("NtoolsUpgradeAction", function
 		for __, l in ipairs(chain) do hl[#hl + 1] = l.edge end
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			highlightedEntities = hl,
 			crosshair = crosshair,
 			terrainCirclePolicy = circle,

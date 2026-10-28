@@ -9,6 +9,7 @@
 local builtin = ug_require "::/gui/main/builtin.lua" as Builtin
 local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as EngineReactUtil
 local react = ug_require "::/gui/main/react.lua" as React
+local leave = require "network_tools_1::/gui/construction/tools/shared/ntools_leave.script.tl" as function(any)
 
 local record NetUtil
 	isProtectedNode : function(node : Engine.Entity) : boolean
@@ -216,7 +217,7 @@ local ReverseActionRecipe = react.RegisterRecipe("NtoolsReverseAction", function
 		ntoolsResetShape = clear,
 		ntoolsBuild = build,
 	})
-	padMod.actions(pad, _("Pick segment"), function() params.abort() end, _("Leave the tool"))
+	padMod.actions(pad, _("Pick segment"), function() leave(params) end, _("Leave the tool"))
 
 	local actionFn = function() : TreeNodeId
 		padMod.trackLayer(pad)
@@ -226,7 +227,7 @@ local ReverseActionRecipe = react.RegisterRecipe("NtoolsReverseAction", function
 			children[#children + 1] = tooltip(_("Reversing..."), true, false)
 			return builtin.ActionDescriptor{
 				tool = "construction-menu-perks",
-				onBack = function() params.abort() end,
+				onBack = function() leave(params) end,
 				crosshair = crosshair,
 				terrainCirclePolicy = circle,
 				children = children,
@@ -279,7 +280,7 @@ local ReverseActionRecipe = react.RegisterRecipe("NtoolsReverseAction", function
 		if under then children[#children + 1] = under end
 		return builtin.ActionDescriptor{
 			tool = "construction-menu-perks",
-			onBack = function() params.abort() end,
+			onBack = function() leave(params) end,
 			highlightedEntities = sel,
 			crosshair = crosshair,
 			terrainCirclePolicy = circle,
