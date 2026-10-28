@@ -233,13 +233,20 @@ local record PathStep
 	fwd : boolean
 end
 
--- Shortest path (by segment count) from `fromNode` to `targetEdge` over segments of the same
--- road type. Returns the links in order, ending with the target segment, or nil.
-local function findPath(fromNode : Engine.Entity, targetEdge : Engine.Entity, roadType : any, exclude : {Engine.Entity : boolean}) : {ChainLink}
+-- Shortest path (by segment count) from the nearest of `fromNodes` (the chain's two ends, one
+-- breadth-first search from both) to `targetEdge` over segments of the same road type. Returns the
+-- links in order, ending with the target segment, and the node it started from; or nil.
+local function findPath(fromNodes : {Engine.Entity}, targetEdge : Engine.Entity, roadType : any, exclude : {Engine.Entity : boolean}) : {ChainLink}, Engine.Entity
 	local te = getEdge(targetEdge)
 	if not te then return nil end
-	local prev : {Engine.Entity : PathStep} = { [fromNode] = { node = nil } }
-	local queue : {Engine.Entity} = { fromNode }
+	local prev : {Engine.Entity : PathStep} = {}
+	local queue : {Engine.Entity} = {}
+	for _, fromNode in ipairs(fromNodes) do
+		if prev[fromNode] == nil then
+			prev[fromNode] = { node = nil }
+			queue[#queue + 1] = fromNode
+		end
+	end
 	local head = 1
 	while head <= #queue and head <= PAR_PATH_SEARCH_LIMIT do
 		local n = queue[head]
@@ -247,13 +254,13 @@ local function findPath(fromNode : Engine.Entity, targetEdge : Engine.Entity, ro
 		if n == te.node0 or n == te.node1 then
 			local links : {ChainLink} = {}
 			local cur = n
-			while cur ~= fromNode do
+			while prev[cur].node ~= nil do
 				local step = prev[cur]
 				table.insert(links, 1, { edge = step.edge, fwd = step.fwd })
 				cur = step.node
 			end
 			links[#links + 1] = { edge = targetEdge, fwd = te.node0 == n }
-			return links
+			return links, cur
 		end
 		local ok, segs = pcall(function() : {Engine.Entity}
 			return api.engine.system.streetSystem.getNodeSegments(n)
@@ -1743,19 +1750,18 @@ local ParallelActionRecipe = react.RegisterRecipe("NtoolsParallelAction", functi
 			local inChain : {Engine.Entity : boolean} = {}
 			for _, l in ipairs(chain) do inChain[l.edge] = true end
 			local roadType = getEdge(chain[1].edge).roadType
-			local path = findPath(endNode, entity, roadType, inChain)
-			if path then
+			-- one search from both ends, so the nearer one wins (the end alone sent a click just behind
+			-- the chain the long way round a loop)
+			local path, from = findPath({ endNode, startNode }, entity, roadType, inChain)
+			if path and from == endNode then
 				for _, l in ipairs(path) do nc[#nc + 1] = l end
-			else
-				local back = findPath(startNode, entity, roadType, inChain)
-				if back then
-					-- walked away from the start: reverse it to put it in front of the chain
-					for _, l in ipairs(back) do
-						table.insert(nc, 1, { edge = l.edge, fwd = not l.fwd })
-					end
-				else
-					nc = { { edge = entity, fwd = true } }
+			elseif path then
+				-- walked away from the start: reverse it to put it in front of the chain
+				for _, l in ipairs(path) do
+					table.insert(nc, 1, { edge = l.edge, fwd = not l.fwd })
 				end
+			else
+				nc = { { edge = entity, fwd = true } }
 			end
 		end
 		chainState:set(nc)

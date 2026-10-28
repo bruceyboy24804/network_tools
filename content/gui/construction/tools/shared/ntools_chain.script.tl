@@ -184,6 +184,7 @@ local record State
 	cost : number             -- what the search minimises (see cost() in search)
 	len : number              -- metres so far
 	m : number                -- the bottleneck modes' running min speed / max gradient
+	seed : integer            -- which search start it descends from (priority searches)
 end
 
 -- a segment's position at node `n` (its end there)
@@ -198,11 +199,19 @@ local function turnSin(a : Info, b : Info, n : Engine.Entity) : number
 	return ax * by - ay * bx
 end
 
--- The path (by the mode) from the chain end at `fromNode`, arrived at on segment `fromEdge`, to
--- segment `target`: the links in order, ending with the target, or nil. `penalty`: segments made
--- dearer (the alternative route's second pass).
-local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target : Engine.Entity, roadType : any,
-		exclude : {Engine.Entity : boolean}, opts : PathOptions, penalty? : {Engine.Entity : boolean}) : {ChainLink}
+-- a place the search starts from: a chain end (its node, arrived at on its end segment)
+local record Seed
+	node : Engine.Entity
+	edge : Engine.Entity
+	atEnd : boolean           -- the chain's last end (else its first)
+end
+
+-- The path (by the mode) from the nearest of the chain ends in `seeds` to segment `target`: the
+-- links in order, ending with the target, and the seed it started from; or nil. One search for all
+-- the seeds, so it stops at the first end to reach the target. `penalty`: segments made dearer
+-- (the alternative route's second pass).
+local function search(seeds : {Seed}, target : Engine.Entity, roadType : any,
+		exclude : {Engine.Entity : boolean}, opts : PathOptions, penalty? : {Engine.Entity : boolean}) : {ChainLink}, Seed
 	local mode = opts and opts.mode or MODE_FEWEST
 	local avoidStations = opts ~= nil and opts.avoidStations == true
 	local isTrack = roadType == api.type["enum"].RoadType.TRACK
@@ -217,7 +226,7 @@ local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target
 		end
 		return i.e and i or nil
 	end
-	local start = info(fromEdge)
+	local start = info(seeds[1].edge)
 	local ti = info(target)
 	if not start or not ti then return nil end
 	local startTemplate = start.template
@@ -262,8 +271,9 @@ local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target
 	-- Walkers (Follow the line / Keep left / Keep right): no search - at each node the one branch the
 	-- rule picks, until the target (or a dead end / a loop)
 	if mode == MODE_FOLLOW or mode == MODE_KEEP_LEFT or mode == MODE_KEEP_RIGHT then
+		local function walk(seed : Seed) : {ChainLink}
 		local states : {string : State} = {}
-		local node, via = fromNode, fromEdge
+		local node, via = seed.node, seed.edge
 		local key = tostring(node) .. ":" .. tostring(via)
 		states[key] = { node = node, via = via, cost = 0 }
 		for __ = 1, SEARCH_LIMIT do
@@ -291,17 +301,26 @@ local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target
 			node, via, key = other, pick.s, nkey
 		end
 		return nil
+		end
+		-- the walk from each chain end; the one with fewer segments
+		local best : {ChainLink} = nil
+		local bestSeed : Seed = nil
+		for __, seed in ipairs(seeds) do
+			local p = walk(seed)
+			if p and (not best or #p < #best) then best, bestSeed = p, seed end
+		end
+		return best, bestSeed
 	end
 
 	-- Alternative route: the shortest path first, then the shortest one with that path's track made
 	-- dear (so it goes another way where there is one)
 	if mode == MODE_ALTERNATIVE and not penalty then
-		local first = search(fromNode, fromEdge, target, roadType, exclude, { mode = MODE_SHORTEST,
+		local first = search(seeds, target, roadType, exclude, { mode = MODE_SHORTEST,
 			avoidStations = avoidStations, electricOnly = opts.electricOnly })
 		if not first then return nil end
 		local used : {Engine.Entity : boolean} = {}
 		for __, l in ipairs(first) do if l.edge ~= target then used[l.edge] = true end end
-		return search(fromNode, fromEdge, target, roadType, exclude, opts, used)
+		return search(seeds, target, roadType, exclude, opts, used)
 	end
 
 	-- Priority searches. cost() gives a state's value from the one before it; the open list is
@@ -348,9 +367,12 @@ local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target
 	local states : {string : State} = {}
 	local done : {string : boolean} = {}
 	local heap : {HeapItem} = {}
-	local startKey = tostring(fromNode) .. ":" .. tostring(fromEdge)
-	states[startKey] = { node = fromNode, via = fromEdge, cost = 0, len = 0, m = mode == MODE_BOTTLENECK_SPEED and math.huge or 0 }
-	heapPush(heap, { cost = 0, key = startKey })
+	for i, seed in ipairs(seeds) do
+		local startKey = tostring(seed.node) .. ":" .. tostring(seed.edge)
+		states[startKey] = { node = seed.node, via = seed.edge, cost = 0, len = 0, seed = i,
+			m = mode == MODE_BOTTLENECK_SPEED and math.huge or 0 }
+		heapPush(heap, { cost = 0, key = startKey })
+	end
 	local popped = 0
 	while #heap > 0 and popped < SEARCH_LIMIT do
 		local item = heapPop(heap)
@@ -359,13 +381,13 @@ local function search(fromNode : Engine.Entity, fromEdge : Engine.Entity, target
 			popped = popped + 1
 			local st = states[item.key]
 			for __, n in ipairs(nexts(st.node, st.via)) do
-				if n.s == target then return linksBack(states, item.key, target, st.node) end
+				if n.s == target then return linksBack(states, item.key, target, st.node), seeds[st.seed] end
 				local other = n.b.e.node0 == st.node and n.b.e.node1 or n.b.e.node0
 				local key = tostring(other) .. ":" .. tostring(n.s)
 				local c, len, m = cost(st, n, st.node)
 				local old = states[key]
 				if not done[key] and (old == nil or c < old.cost) then
-					states[key] = { node = other, via = n.s, prev = item.key, cost = c, len = len, m = m }
+					states[key] = { node = other, via = n.s, prev = item.key, cost = c, len = len, m = m, seed = st.seed }
 					heapPush(heap, { cost = priority(c, endAt(n.b, other)), key = key })
 				end
 			end
@@ -411,15 +433,19 @@ local function click(chain : {ChainLink}, entity : Engine.Entity, avoid? : {Engi
 		for _, l in ipairs(chain) do inChain[l.edge] = true end
 		for s, v in pairs(avoid or {}) do if v then inChain[s] = true end end
 		local roadType = getEdge(chain[1].edge).roadType
-		-- on from the chain's end, else from its start (arriving there on its first segment)
-		local path = search(endNode, chain[#chain].edge, entity, roadType, inChain, opts)
-		local back : {ChainLink} = nil
-		if not path then back = search(startNode, chain[1].edge, entity, roadType, inChain, opts) end
-		if path then
+		-- one search from both of the chain's ends (the start, arriving there on its first segment): it
+		-- takes whichever end is nearer (trying the end first sent a click just behind the chain the
+		-- long way round a loop)
+		local seeds : {Seed} = {
+			{ node = endNode, edge = chain[#chain].edge, atEnd = true },
+			{ node = startNode, edge = chain[1].edge, atEnd = false },
+		}
+		local path, from = search(seeds, entity, roadType, inChain, opts)
+		if path and from.atEnd then
 			for _, l in ipairs(path) do nc[#nc + 1] = l end
-		elseif back then
+		elseif path then
 			-- walked away from the start: reverse it to put it in front of the chain
-			for _, l in ipairs(back) do
+			for _, l in ipairs(path) do
 				table.insert(nc, 1, { edge = l.edge, fwd = not l.fwd })
 			end
 		else
