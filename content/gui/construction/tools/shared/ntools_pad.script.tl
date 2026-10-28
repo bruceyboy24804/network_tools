@@ -16,6 +16,11 @@
 local react = ug_require "::/gui/main/react.lua" as React
 local builtin = ug_require "::/gui/main/builtin.lua" as Builtin
 
+local record PickMod
+	wrap : function(p : {string : any}) : {string : any}
+end
+local pick = require "network_tools_1::/gui/construction/tools/shared/ntools_pick.script.tl" as PickMod
+
 local function isGamepad() : boolean
 	local ok, g = pcall(function() : boolean
 		return api.util.getInputMode() == api.type["enum"].InputMode.Gamepad
@@ -138,6 +143,7 @@ end
 -- else the tool's onSelect on what the crosshair is over (recorded by onHover). The engine also
 -- delivers a pad confirm through onSelect: one route, debounced.
 local function selector(pad : Pad, p : {string : any}) : {string : any}
+	p = pick.wrap(p)   -- (the gaps between a rail's sleepers)
 	if not pad.gamepad:old() then return p end
 	local onSelect = p.onSelect as function(Engine.Entity, {integer}, Gui.SelectionDetails) : boolean
 	local onHover = p.onHover as function(Engine.Entity, {integer}, Gui.SelectionDetails)

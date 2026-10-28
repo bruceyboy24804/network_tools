@@ -117,6 +117,10 @@ local record Chain
 	click : function(chain : {ChainLink}, entity : Engine.Entity, avoid? : {Engine.Entity : boolean}, opts? : {string : any}) : {ChainLink}
 	lastNote : function() : string
 end
+local record PickMod
+	wrap : function(p : {string : any}) : {string : any}
+end
+local pick = require "network_tools_1::/gui/construction/tools/shared/ntools_pick.script.tl" as PickMod
 local chain_util = require "network_tools_1::/gui/construction/tools/shared/ntools_chain.script.tl" as Chain
 
 local dbg = (require "network_tools_1::/gui/construction/tools/shared/ntools_debug.script.tl" as {string : any}).log as function(string)
@@ -494,7 +498,7 @@ local LoopActionRecipe = react.RegisterRecipe("NtoolsLoopAction", function(param
 				children = children,
 			}
 		end
-		children[#children + 1] = builtin.Selector{
+		children[#children + 1] = builtin.Selector(pick.wrap{
 			onSelect = function(entity : Engine.Entity, __ : {integer}, __ : Gui.SelectionDetails) : boolean
 				local e = g_host.getEdge(entity)
 				if not e or e.roadType ~= api.type["enum"].RoadType.TRACK then return false end
@@ -505,7 +509,7 @@ local LoopActionRecipe = react.RegisterRecipe("NtoolsLoopAction", function(param
 				return true
 			end,
 			filter = g_host.isEdge,
-		}
+		} as Builtin.SelectorParam)
 		if proposal then
 			local id = "ntools_loop," .. _o
 			for __, l in ipairs(chain) do id = id .. "," .. tostring(l.edge) end

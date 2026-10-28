@@ -27,6 +27,11 @@ local engine_react_util = ug_require "::/gui/main/engine_react_util.tl" as Engin
 local menu_category_util = ug_require "::/gui/main/menu_category_util.tl" as MenuCategoryUtil
 local react = ug_require "::/gui/main/react.lua" as React
 
+local record PickMod
+	wrap : function(p : {string : any}) : {string : any}
+end
+local gapPick = require "network_tools_1::/gui/construction/tools/shared/ntools_pick.script.tl" as PickMod
+
 -- in-world tags on segments and points (shared/ntools_labels)
 local record Tag
 	grade : number      -- gradient % to show (nil = the segment's own)
@@ -4384,7 +4389,7 @@ local ConnectActionRecipe = react.RegisterRecipe("NtoolsConnectAction", function
 			}
 		end
 		local children : {TreeNodeId} = {
-			builtin.Selector{
+			builtin.Selector(gapPick.wrap{
 				onSelect = function(entity : Engine.Entity, __ : {integer}, __ : Gui.SelectionDetails) : boolean
 					-- (a pad's confirm arrives here too: one route, debounced)
 					if gamepad then
@@ -4401,7 +4406,7 @@ local ConnectActionRecipe = react.RegisterRecipe("NtoolsConnectAction", function
 				end,
 				onProcessMouseEvent = onMouse,
 				filter = function(e : Engine.Entity) : boolean return (isEdge(e)) end,
-			},
+			} as Builtin.SelectorParam),
 		}
 
 		if proposal and not g_livePreview then
